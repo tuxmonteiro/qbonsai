@@ -1,0 +1,19 @@
+package dev.tuxmonteiro.qbonsai.config;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+
+@Slf4j
+@Configuration
+public class JsonMapperConfiguration {
+
+    @Bean
+    @Primary
+    public ObjectMapper objectMapper() {
+        log.info("ObjectMapper created");
+        return new ObjectMapper();
+    }
+}
