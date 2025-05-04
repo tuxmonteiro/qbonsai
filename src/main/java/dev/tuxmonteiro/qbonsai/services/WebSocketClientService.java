@@ -1,7 +1,8 @@
 package dev.tuxmonteiro.qbonsai.services;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.client.WebSocketClient;
@@ -12,17 +13,25 @@ import reactor.core.publisher.Sinks;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.function.Consumer;
 
+@Slf4j
+@Service
 public class WebSocketClientService {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final WebSocketClient webSocketClient;
 
     private Sinks.Many<String> sendBuffer;
     private Sinks.Many<String> receiveBuffer;
     private Disposable subscription;
     private WebSocketSession session;
 
-    public void connect(WebSocketClient webSocketClient, URI uri) {
+    @Autowired
+    public WebSocketClientService(WebSocketClient webSocketClient) {
+        this.webSocketClient = webSocketClient;
+    }
+
+    public void connect(URI uri) {
         sendBuffer = Sinks.many().unicast().onBackpressureBuffer();
         receiveBuffer = Sinks.many().unicast().onBackpressureBuffer();
 
@@ -31,25 +40,30 @@ public class WebSocketClientService {
                 .then(Mono.fromRunnable(this::onClose))
                 .subscribe();
 
-        logger.info("Client connected.");
+        log.info("Client connected.");
+    }
+
+    public void send(String sendMessage, Consumer<? super String> onNext) {
+        Mono.fromRunnable(() -> sendToBuffer(sendMessage))
+            .thenMany(receiveFromBuffer())
+            .doOnNext(onNext)
+            .subscribe();
     }
 
     public void disconnect() {
         if (subscription != null && !subscription.isDisposed()) {
             subscription.dispose();
             subscription = null;
-
             onClose();
         }
-
-        logger.info("Client disconnected.");
+        log.info("Client disconnected.");
     }
 
-    public void send(String message) {
+    public void sendToBuffer(String message) {
         sendBuffer.tryEmitNext(message);
     }
 
-    public Flux<String> receive() {
+    public Flux<String> receiveFromBuffer() {
         return receiveBuffer.asFlux();
     }
 
@@ -83,13 +97,11 @@ public class WebSocketClientService {
 
     private void onOpen(WebSocketSession session) {
         this.session = session;
-
-        logger.info("Session opened");
+        log.info("Session opened");
     }
 
     private void onClose() {
         session = null;
-
-        logger.info("Session closed");
+        log.info("Session closed");
     }
 }
