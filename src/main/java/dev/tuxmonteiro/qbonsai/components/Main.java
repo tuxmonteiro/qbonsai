@@ -3,7 +3,7 @@ package dev.tuxmonteiro.qbonsai.components;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.tuxmonteiro.qbonsai.ClientLogic;
-import dev.tuxmonteiro.qbonsai.services.Client;
+import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -23,14 +23,14 @@ import java.util.*;
 
 @Slf4j
 @Component
-public class ClientComponent implements ApplicationListener<ApplicationReadyEvent> {
+public class Main implements ApplicationListener<ApplicationReadyEvent> {
 
     private final ObjectMapper mapper;
     private ConfigurableApplicationContext applicationContext;
     private Exchanges exchanges;
 
     @Autowired
-    public ClientComponent(ObjectMapper mapper) {
+    public Main(ObjectMapper mapper) {
         this.mapper = mapper;
     }
 
@@ -61,7 +61,7 @@ public class ClientComponent implements ApplicationListener<ApplicationReadyEven
         var httpClient = HttpClient.create().followRedirect(true).wiretap(true);
         var webSocketClient = new ReactorNettyWebSocketClient(httpClient);
 
-        Client client = new Client();
+        WebSocketClientService client = new WebSocketClientService();
         client.connect(webSocketClient, URI.create(urlWs));
 
         new ClientLogic().doLogic(client, sendMessage);

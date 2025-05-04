@@ -1,6 +1,6 @@
 package dev.tuxmonteiro.qbonsai;
 
-import dev.tuxmonteiro.qbonsai.services.Client;
+import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.reactive.socket.WebSocketSession;
@@ -18,7 +18,7 @@ public class ClientLogic {
         MESSAGE_ID = new AtomicInteger(0);
     }
 
-    public void doLogic(Client client, String sendMessage) {
+    public void doLogic(WebSocketClientService client, String sendMessage) {
         Mono
             .fromRunnable(
                 () -> client.send(sendMessage)
