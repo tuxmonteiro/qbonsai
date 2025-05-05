@@ -53,7 +53,7 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
             var channel = Map.entry("channel", channelDef);
             exchangeIntegrator.subscribe(onNext, function, channel);
 
-            blockMainApp(Duration.ofSeconds(60), exchangeIntegrator);
+            blockMainApp(Duration.ofSeconds(30), exchangeIntegrator);
 
         } catch (IOException e) {
             log.error(e.getMessage(), e);

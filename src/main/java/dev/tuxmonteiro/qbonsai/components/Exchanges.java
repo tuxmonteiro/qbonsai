@@ -1,7 +1,6 @@
 package dev.tuxmonteiro.qbonsai.components;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.tuxmonteiro.jccxt.base.types.Exchange;
@@ -23,7 +22,6 @@ import java.util.stream.Collectors;
 public class Exchanges {
 
     private final ObjectMapper mapper;
-    private final Map<String, Object> exchangesFromJson;
     private final Map<String, Exchange> exchangesDTO = new ConcurrentHashMap<>();
     private final Map<String, ExchangeIntegrator> exchanges = new ConcurrentHashMap<>();
     private final WebSocketClientService webSocketClientService;
@@ -37,16 +35,11 @@ public class Exchanges {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is))
         ) {
             JsonNode json = this.mapper.readTree(reader.lines().collect(Collectors.joining()));
-
-            //TODO
-//            json.fieldNames().forEachRemaining(ex ->
-//                exchangesDTO.put(ex, this.mapper.convertValue(json.get(ex), Exchange.class))
-//            );
-
-            exchangesFromJson = this.mapper.convertValue(json, new TypeReference<ConcurrentHashMap<String, Object>>() {});
+            json.fieldNames().forEachRemaining(ex ->
+                exchangesDTO.put(ex, this.mapper.convertValue(json.get(ex), Exchange.class))
+            );
         }
 
-        //log.info(">>>>>" + exchangesDTO.get("bitstamp").getId());
         log.info("Exchanges component created");
     }
 
@@ -58,23 +51,14 @@ public class Exchanges {
         }
 
         final Map<String, Object> exchangeFromJson;
-        if (exchangesFromJson.get(name) instanceof Map<?, ?> map) {
-            exchangeFromJson = (Map<String, Object>) map;
-        } else {
-            throw new IllegalArgumentException("Exchange " + name + " not found");
-        }
+        Optional.ofNullable(exchangesDTO.get(name))
+                .orElseThrow(() -> new IllegalArgumentException("Exchange " + name + " not found"));
 
-        var urls = getObjectMap(exchangeFromJson, "urls");
-        var api = getObjectMap(urls, "api");
-
-        // TODO: Get all apiUrlWs
-        String apiWs = String.valueOf(api.get("ws"));
+        String apiWs = exchangesDTO.get("bitstamp").getUrls().getApi().orElseThrow().getWs().orElseThrow().toString();
 
         // TODO: subscriptionRequestTemplate
         String function = "watchTrades";
-        var subscriptionRequestTemplate = Map.entry(function, getRequestTemplate(exchangeFromJson, name, function));
-
-        //var functions_ws_req = getObjectMap(exchange, "functions_ws_req");
+        var subscriptionRequestTemplate = Map.entry(function, getRequestTemplate(name, function));
 
         exchangeIntegrator = ExchangeIntegrator.builder()
                 .name(name)
@@ -101,35 +85,13 @@ public class Exchanges {
             Optional.ofNullable(map.get(property)).orElse("").toString() : "";
     }
 
-    private Boolean extractBoolean(Map<String, Object> obj, String property) throws IOException {
-        try {
-            if (obj instanceof Map<String, Object> map) {
-                return ((Boolean) Optional.ofNullable(map.get(property)).orElseThrow());
-            } else {
-                throw new IOException("obj " + property + " is NOT Map<>");
-            }
-        } catch (Exception e) {
-            throw new IOException("property " + property + " is NOT Boolean", e);
-        }
-    }
+    private String getRequestTemplate(String exchange_name, String function) {
+        var exchange = Optional.ofNullable(exchangesDTO.get(exchange_name)).orElseThrow();
+        var watchTradesFunction = Optional.ofNullable(exchange.getFunctionsWsReq().get(exchange_name + "." + function)).orElseThrow();
 
-    private String getUrlWs(Map<String, Object> exchange) {
-        var urls = getObjectMap(exchange, "urls");
-        var api = getObjectMap(urls, "api");
-        return String.valueOf(api.get("ws"));
-    }
-
-    private String getRequestTemplate(Map<String, Object> exchange, String exchange_name, String function) {
-        var functions_ws_req = getObjectMap(exchange, "functions_ws_req");
-        var watchTradesFunction = getObjectMap(functions_ws_req, exchange_name + "." + function);
-        var requestTemplateObj = getObjectMap(watchTradesFunction, "request_template");
-        final Object requestTemplateTemplateObj;
-        try {
-            requestTemplateTemplateObj = extractBoolean(requestTemplateObj, "encoded") ? "" : getObjectMap(requestTemplateObj, "template");
-        } catch (IOException e) {
-            log.error(e.getMessage(), e);
-            return "";
-        }
+        var requestTemplate = watchTradesFunction.getRequestTemplate();
+        var encoded = requestTemplate.getEncoded();
+        Object requestTemplateTemplateObj = encoded ? "" : requestTemplate.getTemplate();
 
         try {
             return mapper.writer().writeValueAsString(requestTemplateTemplateObj);
