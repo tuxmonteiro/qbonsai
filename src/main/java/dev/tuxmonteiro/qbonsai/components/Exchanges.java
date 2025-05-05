@@ -43,7 +43,6 @@ public class Exchanges {
         log.info("Exchanges component created");
     }
 
-    @SuppressWarnings("unchecked")
     public synchronized ExchangeIntegrator getExchange(String name) {
         ExchangeIntegrator exchangeIntegrator = exchanges.get(name);
         if (exchangeIntegrator != null) {
@@ -56,7 +55,6 @@ public class Exchanges {
 
         String apiWs = exchangesDTO.get("bitstamp").getUrls().getApi().orElseThrow().getWs().orElseThrow().toString();
 
-        // TODO: subscriptionRequestTemplate
         String function = "watchTrades";
         var subscriptionRequestTemplate = Map.entry(function, getRequestTemplate(name, function));
 
@@ -67,7 +65,7 @@ public class Exchanges {
                 .webSocketClientService(webSocketClientService)
                 .build();
 
-        log.info("Creating exchange " + name);
+        log.info("Creating exchange {}", name);
 
         exchanges.put(name, exchangeIntegrator);
 
