@@ -13,7 +13,6 @@ import reactor.core.publisher.Sinks;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 import static reactor.core.publisher.Sinks.EmitResult.FAIL_NON_SERIALIZED;
 
@@ -35,7 +34,7 @@ public class WebSocketClientService {
 
     public void connect(URI uri) {
         sendBuffer = Sinks.many().unicast().onBackpressureBuffer();
-        receiveBuffer = Sinks.many().unicast().onBackpressureBuffer();
+        receiveBuffer = Sinks.many().multicast().onBackpressureBuffer();
 
         subscription = webSocketClient
                 .execute(uri, this::handleSession)
@@ -45,11 +44,9 @@ public class WebSocketClientService {
         log.info("Client connected.");
     }
 
-    public void send(String sendMessage, Consumer<? super String> onNext) {
-        Mono.fromRunnable(() -> sendToBuffer(sendMessage))
-            .thenMany(receiveFromBuffer())
-            .doOnNext(onNext)
-            .subscribe();
+    public Flux<String> send(String sendMessage) {
+        return Mono.fromRunnable(() -> sendToBuffer(sendMessage))
+            .thenMany(receiveFromBuffer());
     }
 
     public void disconnect() {

@@ -45,14 +45,12 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
         try {
             exchange.connect();
 
-            Consumer<String> onNext = message ->
-                    log.info("Client id=[{}] -> received: [{}]",
-                            client.session().map(WebSocketSession::getId).orElse(""), message);
-
             String function = "watchTrades";
             String channelDef = "live_trades_btcusd";
             var channel = Map.entry("channel", channelDef);
-            exchange.subscribe(onNext, function, channel);
+
+            exchange.subscribe(function, channel)
+                    .subscribe(consumerDebug());
 
             blockMainApp(Duration.ofSeconds(30), exchange);
 
@@ -61,12 +59,20 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
         }
     }
 
-    private void blockMainApp(Duration duration, final ExchangeIntegrator exchangeIntegrator) {
+    private Consumer<? super Map<String, Object>> consumerDebug() {
+        //if (!log.isDebugEnabled()) return ignore -> {};
+
+        return message ->
+                log.info("Client id=[{}] -> received: [{}]",
+                        client.session().map(WebSocketSession::getId).orElse(""), message.toString());
+    }
+
+    private void blockMainApp(Duration duration, final ExchangeIntegrator exchange) {
         Duration timeout = Duration.ofSeconds(5);
         Mono.delay(duration)
                 .publishOn(Schedulers.boundedElastic())
                 .subscribe(value -> {
-                    exchangeIntegrator.disconnect();
+                    exchange.disconnect();
                     SpringApplication.exit(applicationContext, () -> 0);
                 });
 
