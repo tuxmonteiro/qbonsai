@@ -40,20 +40,21 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
     public void onApplicationEvent(ApplicationReadyEvent event) {
 
         String exchange_name = "bitstamp";
-        ExchangeIntegrator exchangeIntegrator = exchanges.getExchange(exchange_name);
+        ExchangeIntegrator exchange = exchanges.getExchange(exchange_name);
 
         try {
-            exchangeIntegrator.connect();
+            exchange.connect();
 
             Consumer<String> onNext = message ->
-                    log.info("Client id=[{}] -> received: [{}]", client.session().map(WebSocketSession::getId).orElse(""), message);
+                    log.info("Client id=[{}] -> received: [{}]",
+                            client.session().map(WebSocketSession::getId).orElse(""), message);
 
             String function = "watchTrades";
             String channelDef = "live_trades_btcusd";
             var channel = Map.entry("channel", channelDef);
-            exchangeIntegrator.subscribe(onNext, function, channel);
+            exchange.subscribe(onNext, function, channel);
 
-            blockMainApp(Duration.ofSeconds(30), exchangeIntegrator);
+            blockMainApp(Duration.ofSeconds(30), exchange);
 
         } catch (IOException e) {
             log.error(e.getMessage(), e);
@@ -61,8 +62,8 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
     }
 
     private void blockMainApp(Duration duration, final ExchangeIntegrator exchangeIntegrator) {
-        long timeout = 5L;
-        Mono.delay(duration.minus(Duration.ofSeconds(timeout)))
+        Duration timeout = Duration.ofSeconds(5);
+        Mono.delay(duration)
                 .publishOn(Schedulers.boundedElastic())
                 .subscribe(value -> {
                     exchangeIntegrator.disconnect();
@@ -70,7 +71,7 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
                 });
 
         try {
-            Thread.sleep(duration);
+            Thread.sleep(duration.plus(timeout));
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

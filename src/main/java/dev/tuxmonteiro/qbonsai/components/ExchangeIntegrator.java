@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.Serial;
 import java.net.URI;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -38,11 +39,19 @@ public class ExchangeIntegrator extends Exchange {
     @JsonIgnore
     public void connect() throws IOException {
         var apiUrlWsObj = getUrls().getApi().orElseThrow().getWs().orElseThrow();
+        URI uri = null;
         if (apiUrlWsObj instanceof String apiUrlWs) {
-            webSocketClientService.connect(URI.create(apiUrlWs));
-        } else {
+            uri = URI.create(apiUrlWs);
+        }
+        if (apiUrlWsObj instanceof Map map) {
+            var uriStr = Optional.ofNullable(map.get("public"))
+                    .orElse(Optional.ofNullable(map.get("private")).orElseThrow()).toString();
+            uri = URI.create(uriStr);
+        }
+        if (Objects.isNull(uri)) {
             throw new UnsupportedOperationException("Not Implemented");
         }
+        webSocketClientService.connect(uri);
     }
 
     @JsonIgnore

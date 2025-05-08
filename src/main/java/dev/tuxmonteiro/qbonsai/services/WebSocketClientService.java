@@ -15,6 +15,8 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static reactor.core.publisher.Sinks.EmitResult.FAIL_NON_SERIALIZED;
+
 @Slf4j
 @Service
 public class WebSocketClientService {
@@ -60,7 +62,8 @@ public class WebSocketClientService {
     }
 
     public void sendToBuffer(String message) {
-        sendBuffer.tryEmitNext(message);
+        sendBuffer.emitNext(message,
+                (signalType, emitResult) -> FAIL_NON_SERIALIZED.equals(emitResult));
     }
 
     public Flux<String> receiveFromBuffer() {
@@ -74,25 +77,22 @@ public class WebSocketClientService {
     private Mono<Void> handleSession(WebSocketSession session) {
         onOpen(session);
 
-        Mono<Void> input =
-            session
+        Mono<Void> input = session
                 .receive()
                 .map(WebSocketMessage::getPayloadAsText)
-                .doOnNext(receiveBuffer::tryEmitNext)
+                .doOnNext(message ->
+                    receiveBuffer.emitNext(message,
+                            (signalType, emitResult) -> FAIL_NON_SERIALIZED.equals(emitResult))
+                )
                 .then();
 
-        Mono<Void> output =
-            session
-                .send(
-                    sendBuffer
+        Mono<Void> output = session
+                .send(sendBuffer
                         .asFlux()
                         .map(session::textMessage)
                 );
 
-        return
-            Mono
-                .zip(input, output)
-                .then();
+        return Mono.zip(input, output).then();
     }
 
     private void onOpen(WebSocketSession session) {
