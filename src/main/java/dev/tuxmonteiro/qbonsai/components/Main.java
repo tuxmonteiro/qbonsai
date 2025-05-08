@@ -1,5 +1,6 @@
 package dev.tuxmonteiro.qbonsai.components;
 
+import dev.tuxmonteiro.qbonsai.data.Ohlcv;
 import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -37,6 +39,7 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public void onApplicationEvent(ApplicationReadyEvent event) {
 
         String exchange_name = "bitstamp";
@@ -50,7 +53,12 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
             var channel = Map.entry("channel", channelDef);
 
             exchange.subscribe(function, channel)
-                    .subscribe(consumerDebug());
+                    .doOnNext(consumerDebug())
+                    .filter(m -> "trade".equals(m.get("event")))
+                    .map(f -> f.get("data"))
+                    .window(Duration.ofSeconds(10))
+                    .reduce(new Ohlcv(), (acc, value) -> acc.update((Map<String, Object>)value))
+                    .subscribe();
 
             blockMainApp(Duration.ofSeconds(30), exchange);
 
