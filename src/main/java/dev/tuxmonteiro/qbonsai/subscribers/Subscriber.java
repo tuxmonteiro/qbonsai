@@ -47,8 +47,7 @@ public abstract class Subscriber {
 
     public static class NullSubscriber extends Subscriber {
 
-        @Override
-        public String name() {
+        public static String name() {
             return "Null Subscriber";
         }
 
