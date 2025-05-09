@@ -61,7 +61,7 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
                         log.error(t.getMessage(), t);
                         return Flux.just(TradeBuilder.NULL_TRADE);
                     })
-                    .filter(trade -> !TradeBuilder.NULL_TRADE.equals(trade))
+                    .filter(TradeBuilder::ignoreTradeNull)
                     .window(intervalToAggregate)
                     .flatMap(fluxOfTrade ->
                          new Ohlcv().update(fluxOfTrade)

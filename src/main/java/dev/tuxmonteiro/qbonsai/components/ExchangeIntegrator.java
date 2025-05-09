@@ -2,13 +2,12 @@ package dev.tuxmonteiro.qbonsai.components;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.tuxmonteiro.jccxt.base.types.Exchange;
 import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
+import dev.tuxmonteiro.qbonsai.subscribers.Subscriber;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.io.Serial;
@@ -23,6 +22,7 @@ public class ExchangeIntegrator extends Exchange {
 
     private WebSocketClientService webSocketClientService;
     private ObjectMapper mapper;
+    private Subscriber subscriber;
 
     @JsonIgnore
     public ExchangeIntegrator setWebSocketClientService(final WebSocketClientService webSocketClientService) {
@@ -37,20 +37,15 @@ public class ExchangeIntegrator extends Exchange {
     }
 
     @JsonIgnore
+    public ExchangeIntegrator setSubscriber(final Subscriber subscriber) {
+        this.subscriber = subscriber;
+        return this;
+    }
+
+    @JsonIgnore
     public void connect() throws IOException {
         var apiUrlWsObj = getUrls().getApi().orElseThrow().getWs().orElseThrow();
-        URI uri = null;
-        if (apiUrlWsObj instanceof String apiUrlWs) {
-            uri = URI.create(apiUrlWs);
-        }
-        if (apiUrlWsObj instanceof Map map) {
-            var uriStr = Optional.ofNullable(map.get("public"))
-                    .orElse(Optional.ofNullable(map.get("private")).orElseThrow()).toString();
-            uri = URI.create(uriStr);
-        }
-        if (Objects.isNull(uri)) {
-            throw new UnsupportedOperationException("Not Implemented");
-        }
+        URI uri = getUri(apiUrlWsObj);
         webSocketClientService.connect(uri);
     }
 
@@ -59,24 +54,12 @@ public class ExchangeIntegrator extends Exchange {
     public final Flux<Map<String, Object>> subscribe(String function, Map.Entry<String, String>... functionParams) {
         var requestTemplate = getRequestTemplate(function);
         String sendMessage = processTemplate(requestTemplate, functionParams);
+
         log.info("Sending message {}", sendMessage);
+        var flux = webSocketClientService.send(sendMessage).transform(subscriber::common);
 
-        var flux = webSocketClientService.send(sendMessage)
-                .flatMap(str ->
-                    Mono.fromCallable(() -> Collections.unmodifiableMap(mapper.readValue(str, new TypeReference<HashMap<String, Object>>() {})))
-                            .flux()
-                            .onErrorResume(t -> {
-                                log.error(t.getMessage(), t);
-                                return Flux.empty();
-                            })
-                );
-
-        flux
-            .filter(m -> m.get("event").toString().startsWith("bts:subscription"))
-            .subscribe(m -> log.info("subscribe result: {}", m));
-
-        return flux
-            .filter(m -> !m.get("event").toString().startsWith("bts:subscription"));
+        subscriber.processSubscribeResult(flux);
+        return flux;
     }
 
     @JsonIgnore
@@ -84,7 +67,6 @@ public class ExchangeIntegrator extends Exchange {
         webSocketClientService.disconnect();
     }
 
-    @JsonIgnore
     private String getRequestTemplate(String function) {
         var functionsWsReq = Optional.ofNullable(getFunctionsWsReq().get(getId() + "." + function)).orElseThrow();
         var requestTemplate = functionsWsReq.getRequestTemplate();
@@ -99,13 +81,28 @@ public class ExchangeIntegrator extends Exchange {
         }
     }
 
-    @JsonIgnore
     @SafeVarargs
     private final String processTemplate(String template, Map.Entry<String, String>... entries) {
         for (Map.Entry<String, String> entry : entries) {
             template = template.replaceAll("[{]" + entry.getKey() + "[}]", entry.getValue());
         }
         return template;
+    }
+
+    private static URI getUri(Object apiUrlWsObj) {
+        URI uri = null;
+        if (apiUrlWsObj instanceof String apiUrlWs) {
+            uri = URI.create(apiUrlWs);
+        }
+        if (apiUrlWsObj instanceof Map map) {
+            var uriStr = Optional.ofNullable(map.get("public"))
+                    .orElse(Optional.ofNullable(map.get("private")).orElseThrow()).toString();
+            uri = URI.create(uriStr);
+        }
+        if (Objects.isNull(uri)) {
+            throw new UnsupportedOperationException("Not Implemented");
+        }
+        return uri;
     }
 
 }

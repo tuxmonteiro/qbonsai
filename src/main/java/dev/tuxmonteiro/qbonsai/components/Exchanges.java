@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.tuxmonteiro.jccxt.base.types.Exchange;
 import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
+import dev.tuxmonteiro.qbonsai.subscribers.Subscriber;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static dev.tuxmonteiro.qbonsai.subscribers.Subscriber.subscribers;
 
 @Slf4j
 @Component
@@ -31,11 +34,19 @@ public class Exchanges {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is))
         ) {
             JsonNode json = mapper.readTree(reader.lines().collect(Collectors.joining()));
-            json.fieldNames().forEachRemaining(ex ->
-                this.exchanges.put(ex, mapper.convertValue(json.get(ex), ExchangeIntegrator.class)
-                        .setWebSocketClientService(webSocketClientService)
-                        .setObjectMapper(mapper))
-            );
+            json.fieldNames().forEachRemaining(ex -> {
+                final ExchangeIntegrator exchange = mapper.convertValue(json.get(ex), ExchangeIntegrator.class);
+
+                exchange.setWebSocketClientService(webSocketClientService)
+                        .setObjectMapper(mapper)
+                        .setSubscriber(Optional.ofNullable(subscribers.get(ex))
+                            .orElseGet(() -> {
+                                log.warn("Exchange {} dont have a subscriber", ex);
+                                return new Subscriber.NullSubscriber();
+                            }).setObjectMapper(mapper));
+
+                this.exchanges.put(ex, exchange);
+            });
         }
 
         log.info("Exchanges component created");

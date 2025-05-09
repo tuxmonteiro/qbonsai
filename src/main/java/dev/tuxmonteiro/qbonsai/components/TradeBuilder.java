@@ -43,6 +43,10 @@ public class TradeBuilder {
         return trade;
     }
 
+    public static boolean ignoreTradeNull(Trade trade) {
+        return !NULL_TRADE.equals(trade);
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> baseData(Map<String, Object> map) {
         if (map.containsKey("data")) {
@@ -104,6 +108,7 @@ public class TradeBuilder {
         return datetimeMicrosecs;
     }
 
+    // TODO: Implements more generic code
     public static boolean isTrade(Map<String, Object> map) {
         return "trade".equals(map.get("event"));
     }
