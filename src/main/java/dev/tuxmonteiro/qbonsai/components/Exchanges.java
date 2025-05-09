@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 public class Exchanges {
 
     private final Map<String, ExchangeIntegrator> exchanges = Collections.synchronizedMap(new HashMap<>());
+    private final Set<String> supported = Set.of(
+            "bitstamp"
+    );
 
     @Autowired
     public Exchanges(ObjectMapper mapper, WebSocketClientService webSocketClientService) throws IOException {
@@ -39,6 +42,9 @@ public class Exchanges {
     }
 
     public ExchangeIntegrator getExchange(String name) {
+        if (!supported.contains(name)) {
+            throw new IllegalArgumentException("Exchange " + name + " not supported");
+        }
         return Optional.ofNullable(exchanges.get(name))
                 .orElseThrow(() -> new IllegalArgumentException("Exchange " + name + " not found"));
     }
