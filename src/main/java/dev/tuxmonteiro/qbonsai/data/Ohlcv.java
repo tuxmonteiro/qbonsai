@@ -1,11 +1,16 @@
 package dev.tuxmonteiro.qbonsai.data;
 
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
+@Slf4j
 public class Ohlcv {
 
     private final Timestamp localTimestamp;
@@ -21,20 +26,39 @@ public class Ohlcv {
         this.localTimestamp = Timestamp.from(Instant.now());
     }
 
-    public Ohlcv update(Map<String, Object> value) {
-        var amount = new BigDecimal(value.get("amount_str").toString());
-        var price = new BigDecimal(value.get("price_str").toString());
-        Timestamp microtimestamp = Timestamp.from(Instant.ofEpochMilli(Long.getLong(value.get("microtimestamp").toString())));
+    public Flux<Ohlcv> update(Flux<Map<String, Object>> flux) {
+        return flux.map(map -> {
+            var amount = map.containsKey("amount_str") ? new BigDecimal(map.get("amount_str").toString()) : null;
+            var price = map.containsKey("price_str") ? new BigDecimal(map.get("price_str").toString()) : null;
+            Timestamp microtimestamp = null;
 
-        return updateOpen(price, microtimestamp)
-                .updateHigh(price)
-                .updateLow(price)
-                .updateClose(price)
-                .updateVolume(amount);
+            long epoch;
+            if (map.containsKey("microtimestamp")) {
+                String microtimestampStr = Optional.ofNullable(map.get("microtimestamp")).orElse("0").toString();
+                epoch = Long.parseLong(microtimestampStr);
+            } else {
+                epoch = (System.currentTimeMillis() * 1000L) + (System.nanoTime() % 1000_000_000L);
+            }
+            long epochMilli = epoch;
+            long epochNano = 0L;
+            if (epoch > 9999999999999L) {
+                epochMilli = epoch / 1000L;
+                epochNano = epoch % 1000L;
+            }
+            Instant instant = Instant.ofEpochMilli(epochMilli).plusNanos(epochNano);
+            microtimestamp = Timestamp.from(instant);
+
+            updateOpen(price, microtimestamp)
+                    .updateHigh(price)
+                    .updateLow(price)
+                    .updateClose(price)
+                    .updateVolume(amount);
+            return this;
+        });
     }
 
     private Ohlcv updateOpen(BigDecimal price, Timestamp microtimestamp) {
-        if (Objects.isNull(this.open)) {
+        if (Objects.isNull(this.open) && Objects.nonNull(price) && Objects.nonNull(microtimestamp)) {
             this.open = price;
             this.high = price;
             this.low = price;
@@ -45,26 +69,30 @@ public class Ohlcv {
     }
 
     private Ohlcv updateHigh(BigDecimal price) {
-        if (this.high.compareTo(price) < 0) {
+        if (Objects.nonNull(price) && this.high.compareTo(price) < 0) {
             this.high = price;
         }
         return this;
     }
 
     private Ohlcv updateLow(BigDecimal price) {
-        if (this.low.compareTo(price) > 0) {
+        if (Objects.nonNull(price) && this.low.compareTo(price) > 0) {
             this.low = price;
         }
         return this;
     }
 
     private Ohlcv updateClose(BigDecimal price) {
-        this.close = price;
+        if (Objects.nonNull(price)) {
+            this.close = price;
+        }
         return this;
     }
 
     private Ohlcv updateVolume(BigDecimal amount) {
-        this.volume.add(amount);
+        if (Objects.nonNull(amount)) {
+            this.volume = this.volume.add(amount);
+        }
         return this;
     }
 

@@ -10,9 +10,9 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketSession;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import reactor.util.function.Tuples;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -52,22 +52,29 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
             String channelDef = "live_trades_btcusd";
             var channel = Map.entry("channel", channelDef);
 
+            final var intervalToAggregate = Duration.ofSeconds(10);
             exchange.subscribe(function, channel)
-                    .doOnNext(consumerDebug())
+                    //.doOnNext(consumerDebug())
                     .filter(m -> "trade".equals(m.get("event")))
-                    .map(f -> f.get("data"))
-                    .window(Duration.ofSeconds(10))
-                    .reduce(new Ohlcv(), (acc, value) -> acc.update((Map<String, Object>)value))
-                    .subscribe();
+                    .map(f -> ((Map<String, Object>)f.get("data")))
+                    .window(intervalToAggregate)
+                    .flatMap(flux ->
+                        new Ohlcv().update(flux)
+                        .onErrorResume(t -> {
+                            log.error(t.getMessage(), t);
+                            return Flux.empty();
+                        })
+                    )
+                    .subscribe(consumerDebug());
 
-            blockMainApp(Duration.ofSeconds(30), exchange);
+            blockMainApp(Duration.ofSeconds(120), exchange);
 
         } catch (IOException e) {
             log.error(e.getMessage(), e);
         }
     }
 
-    private Consumer<? super Map<String, Object>> consumerDebug() {
+    private Consumer<? super Ohlcv> consumerDebug() {
         //if (!log.isDebugEnabled()) return ignore -> {};
 
         return message ->
