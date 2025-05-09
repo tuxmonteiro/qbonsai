@@ -1,13 +1,13 @@
 package dev.tuxmonteiro.qbonsai.data;
 
 import dev.tuxmonteiro.jccxt.base.types.Trade;
+import dev.tuxmonteiro.qbonsai.utils.ConvertUtils;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.temporal.ChronoField;
 import java.util.*;
 
 @Slf4j
@@ -23,27 +23,11 @@ public class Ohlcv {
     private BigDecimal close = BigDecimal.ZERO;
     private BigDecimal volume = BigDecimal.ZERO;
 
-    public Mono<Ohlcv> update(Flux<Map<String, Object>> flux) {
-        return flux.map(map -> {
-            var amount = getAmount(map);
-            var price = getPrice(map);
-            long datetimeMicrosecs = getDatetimeMicrosecs(map);
-
-            if (Objects.isNull(amount) || Objects.isNull(price)) {
-                throw new IllegalArgumentException("map not processed: " + map);
-            }
-
-            long datetimeNano = 0L;
-            if (datetimeMicrosecs > 9999999999999L) {
-                datetimeMicrosecs = datetimeMicrosecs / 1000L;
-                datetimeNano = datetimeMicrosecs % 1000L;
-            }
-            Instant instant = getInstantMicrosecs(datetimeMicrosecs, datetimeNano);
-
-            Trade trade = new Trade();
-            trade.setAmount(amount.doubleValue());
-            trade.setCost(price.doubleValue());
-            trade.setDatetime(instant.toString());
+    public Mono<Ohlcv> update(Flux<Trade> flux) {
+        return flux.map(trade -> {
+            var instant = ConvertUtils.getInstantFromString(trade.getDatetime().orElseThrow());
+            var price = BigDecimal.valueOf(trade.getCost().orElseThrow());
+            var amount = BigDecimal.valueOf(trade.getAmount().orElseThrow());
 
             trades.put(instant, trade);
 
@@ -58,36 +42,6 @@ public class Ohlcv {
             return Flux.empty();
         })
         .then(Mono.just(this));
-    }
-
-    private Instant getInstantMicrosecs(long datetimeMicrosecs, long datetimeNano) {
-        return Instant.ofEpochMilli(datetimeMicrosecs).plusNanos(datetimeNano);
-    }
-
-    // TODO: Implements more generic code
-    private BigDecimal getPrice(Map<String, Object> map) {
-        return map.containsKey("price_str") ?
-                new BigDecimal(map.get("price_str").toString()) : null;
-    }
-
-    // TODO: Implements more generic code
-    private BigDecimal getAmount(Map<String, Object> map) {
-        return map.containsKey("amount_str") ?
-                new BigDecimal(map.get("amount_str").toString()) : null;
-    }
-
-    // TODO: Implements more generic code
-    private long getDatetimeMicrosecs(Map<String, Object> map) {
-        long datetimeMicrosecs;
-        if (map.containsKey("microtimestamp")) {
-            String microtimestampStr = Optional.ofNullable(map.get("microtimestamp")).orElse("0").toString();
-            datetimeMicrosecs = Long.parseLong(microtimestampStr);
-        } else {
-            log.error("microtimestamp not found. Using Instant.now()");
-            Instant now = Instant.now();
-            datetimeMicrosecs = (now.toEpochMilli() * 1000L) + (now.getLong(ChronoField.NANO_OF_SECOND) % 1000L);
-        }
-        return datetimeMicrosecs;
     }
 
     private Ohlcv updateOpen(BigDecimal price, Instant instant) {

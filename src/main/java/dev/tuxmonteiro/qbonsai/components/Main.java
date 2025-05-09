@@ -54,16 +54,17 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
 
             final var intervalToAggregate = Duration.ofSeconds(10);
             exchange.subscribe(function, channel)
-                    .filter(m -> "trade".equals(m.get("event")))
-                    .map(f -> (Collections.unmodifiableMap ((Map<String, Object>) f.get("data"))))
+                    .filter(TradeBuilder::isTrade)
+                    .map(TradeBuilder::build)
+                    .doOnNext(trade -> log.info(trade.toString()))
                     .onErrorResume(t -> {
                         log.error(t.getMessage(), t);
-                        return Flux.just(Collections.emptyMap());
+                        return Flux.just(TradeBuilder.NULL_TRADE);
                     })
-                    .filter(m -> !m.isEmpty())
+                    .filter(trade -> !TradeBuilder.NULL_TRADE.equals(trade))
                     .window(intervalToAggregate)
-                    .flatMap(fluxOfData ->
-                         new Ohlcv().update(fluxOfData)
+                    .flatMap(fluxOfTrade ->
+                         new Ohlcv().update(fluxOfTrade)
                     )
                     .subscribe(consumerDebug());
 

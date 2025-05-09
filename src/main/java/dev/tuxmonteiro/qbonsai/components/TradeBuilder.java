@@ -7,10 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoField;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class TradeBuilder {
@@ -21,6 +22,9 @@ public class TradeBuilder {
         var amount = getAmount(baseData(map));
         var price = getPrice(baseData(map));
         long datetimeMicrosecs = getDatetimeMicrosecs(baseData(map));
+        String id = getId(baseData(map));
+        String type = getType(baseData(map));
+        String symbol = getSymbol(map);
 
         if (Objects.isNull(amount) || Objects.isNull(price)) {
             throw new IllegalArgumentException("map not processed: " + map);
@@ -32,6 +36,9 @@ public class TradeBuilder {
         trade.setAmount(amount.doubleValue());
         trade.setCost(price.doubleValue());
         trade.setDatetime(instant.toString());
+        trade.setId(id);
+        trade.setType(type);
+        trade.setSymbol(symbol);
 
         return trade;
     }
@@ -46,9 +53,35 @@ public class TradeBuilder {
     }
 
     // TODO: Implements more generic code
+    private static String getSymbol(Map<String, Object> map) {
+        String symbol = null;
+        if (map.containsKey("channel")) {
+            symbol = map.get("channel").toString();
+            if (symbol.startsWith("live_trades_")) {
+                var symbolSplited = symbol.split("_");
+                var skip = Integer.max(0, symbolSplited.length - 1);
+                return Arrays.stream(symbolSplited).skip(skip).collect(Collectors.joining());
+            }
+        }
+        return symbol;
+    }
+
+    // TODO: Implements more generic code
     private static BigDecimal getPrice(Map<String, Object> map) {
         return map.containsKey("price_str") ?
                 new BigDecimal(map.get("price_str").toString()) : null;
+    }
+
+    // TODO: Implements more generic code
+    private static String getId(Map<String, Object> map) {
+        return map.containsKey("id") ?
+                map.get("id").toString() : null;
+    }
+
+    // TODO: Implements more generic code
+    private static String getType(Map<String, Object> map) {
+        return map.containsKey("type") ?
+                map.get("type").toString() : null;
     }
 
     // TODO: Implements more generic code
