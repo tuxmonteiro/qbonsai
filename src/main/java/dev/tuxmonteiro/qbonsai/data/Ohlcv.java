@@ -26,7 +26,7 @@ public class Ohlcv {
     public Mono<Ohlcv> update(Flux<Trade> flux) {
         return flux.map(trade -> {
             var instant = ConvertUtils.getInstantFromString(trade.getDatetime().orElseThrow());
-            var price = BigDecimal.valueOf(trade.getCost().orElseThrow());
+            var price = BigDecimal.valueOf(trade.getPrice());
             var amount = BigDecimal.valueOf(trade.getAmount().orElseThrow());
 
             trades.put(instant, trade);

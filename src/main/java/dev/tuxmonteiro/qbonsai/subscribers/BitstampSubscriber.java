@@ -19,8 +19,8 @@ public class BitstampSubscriber extends Subscriber {
     }
 
     @Override
-    public Predicate<? super Map<String, Object>> isTrade() {
-        return null;
+    public boolean isTrade(Map<String, Object> map) {
+        return "trade".equals(map.get("event"));
     }
 
     @Override

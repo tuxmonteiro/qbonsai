@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.tuxmonteiro.jccxt.base.types.Exchange;
 import dev.tuxmonteiro.qbonsai.services.WebSocketClientService;
 import dev.tuxmonteiro.qbonsai.subscribers.Subscriber;
+import dev.tuxmonteiro.qbonsai.utils.ConvertUtils;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.io.Serial;
 import java.net.URI;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Slf4j
 public class ExchangeIntegrator extends Exchange {
@@ -37,9 +39,14 @@ public class ExchangeIntegrator extends Exchange {
     }
 
     @JsonIgnore
-    public ExchangeIntegrator setSubscriber(final Subscriber subscriber) {
-        this.subscriber = subscriber;
+    public ExchangeIntegrator defineSubscriber() {
+        this.subscriber = getSubscriber().setObjectMapper(mapper);
         return this;
+    }
+
+    @JsonIgnore
+    public boolean isTrade(Map<String, Object> map) {
+        return subscriber.isTrade(map);
     }
 
     @JsonIgnore
@@ -103,6 +110,19 @@ public class ExchangeIntegrator extends Exchange {
             throw new UnsupportedOperationException("Not Implemented");
         }
         return uri;
+    }
+
+    private Subscriber getSubscriber() {
+        String subscribersPackage = "dev.tuxmonteiro.qbonsai.subscribers";
+        String className = getName().replaceAll("[ .:()]", "") + "Subscriber";
+        className = Pattern.compile("^.").matcher(className).replaceFirst(m -> m.group().toUpperCase());
+        String classFullName = subscribersPackage + "." + className;
+        return Optional
+                .ofNullable((Subscriber) ConvertUtils.getClassFromString(classFullName, false))
+                .orElseGet(() -> {
+                    log.warn("Exchange {} dont have a subscriber {}", getName(), classFullName);
+                    return new Subscriber.NullSubscriber();
+                });
     }
 
 }

@@ -1,10 +1,16 @@
 package dev.tuxmonteiro.qbonsai.utils;
 
+import lombok.extern.java.Log;
+import lombok.extern.slf4j.Slf4j;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
+@Slf4j
 public class ConvertUtils {
 
     public static Instant getInstantFromString(String instantStr, ZoneOffset zoneOffset) {
@@ -28,5 +34,20 @@ public class ConvertUtils {
             instantLongNano = instantLong % 1000L;
         }
         return Instant.ofEpochMilli(instantLong).plusNanos(instantLongNano);
+    }
+
+    public static Object getClassFromString(String className, boolean logError) {
+        try {
+            Class<?> myClass = Class.forName(className);
+            Constructor<?> constructor = myClass.getConstructor();
+            return constructor.newInstance();
+        } catch (NoSuchMethodException |
+                ClassNotFoundException |
+                InvocationTargetException |
+                InstantiationException |
+                IllegalAccessException e) {
+            if (logError) log.error(e.getMessage(), e);
+        }
+        return null;
     }
 }

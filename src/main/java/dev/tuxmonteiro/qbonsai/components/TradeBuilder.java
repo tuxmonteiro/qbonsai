@@ -34,7 +34,7 @@ public class TradeBuilder {
 
         Trade trade = new Trade();
         trade.setAmount(amount.doubleValue());
-        trade.setCost(price.doubleValue());
+        trade.setPrice(price.doubleValue());
         trade.setDatetime(instant.toString());
         trade.setId(id);
         trade.setType(type);
@@ -106,10 +106,5 @@ public class TradeBuilder {
             datetimeMicrosecs = (now.toEpochMilli() * 1000L) + (now.getLong(ChronoField.NANO_OF_SECOND) % 1000L);
         }
         return datetimeMicrosecs;
-    }
-
-    // TODO: Implements more generic code
-    public static boolean isTrade(Map<String, Object> map) {
-        return "trade".equals(map.get("event"));
     }
 }

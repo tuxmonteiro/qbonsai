@@ -14,10 +14,6 @@ import java.util.function.Predicate;
 @Slf4j
 public abstract class Subscriber {
 
-    public static final Map<String, Subscriber> subscribers = Map.of(
-            BitstampSubscriber.name(), new BitstampSubscriber()
-    );
-
     private ObjectMapper mapper;
 
     public Subscriber setObjectMapper(ObjectMapper mapper) {
@@ -27,7 +23,7 @@ public abstract class Subscriber {
 
     public abstract Predicate<? super Map<String, Object>> subscribeResult();
 
-    public abstract Predicate<? super Map<String, Object>> isTrade();
+    public abstract boolean isTrade(Map<String, Object> map);
 
     public Flux<Map<String, Object>> common(Flux<String> flux) {
         return flux.flatMap(str ->
@@ -57,7 +53,7 @@ public abstract class Subscriber {
         }
 
         @Override
-        public Predicate<? super Map<String, Object>> isTrade() {
+        public boolean isTrade(Map<String, Object> map) {
             throw new UnsupportedOperationException();
         }
 

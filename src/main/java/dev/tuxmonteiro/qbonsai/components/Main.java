@@ -39,7 +39,6 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onApplicationEvent(ApplicationReadyEvent event) {
 
         String exchange_name = "bitstamp";
@@ -54,7 +53,7 @@ public class Main implements ApplicationListener<ApplicationReadyEvent> {
 
             final var intervalToAggregate = Duration.ofSeconds(10);
             exchange.subscribe(function, channel)
-                    .filter(TradeBuilder::isTrade)
+                    .filter(exchange::isTrade)
                     .map(TradeBuilder::build)
                     .doOnNext(trade -> log.info(trade.toString()))
                     .onErrorResume(t -> {
