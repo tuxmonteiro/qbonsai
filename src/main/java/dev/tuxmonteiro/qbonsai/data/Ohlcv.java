@@ -1,6 +1,5 @@
 package dev.tuxmonteiro.qbonsai.data;
 
-import dev.tuxmonteiro.jccxt.base.types.Trade;
 import dev.tuxmonteiro.qbonsai.utils.ConvertUtils;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
@@ -25,9 +24,9 @@ public class Ohlcv {
 
     public Mono<Ohlcv> update(Flux<Trade> flux) {
         return flux.map(trade -> {
-            var instant = ConvertUtils.getInstantFromString(trade.getDatetime().orElseThrow());
-            var price = BigDecimal.valueOf(trade.getPrice());
-            var amount = BigDecimal.valueOf(trade.getAmount().orElseThrow());
+            var instant = ConvertUtils.getInstantFromString(trade.getDatetime());
+            var price = trade.getPrice();
+            var amount = trade.getAmount();
 
             trades.put(instant, trade);
 

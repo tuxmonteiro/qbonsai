@@ -1,6 +1,6 @@
 package dev.tuxmonteiro.qbonsai.components;
 
-import dev.tuxmonteiro.jccxt.base.types.Trade;
+import dev.tuxmonteiro.qbonsai.data.Trade;
 import dev.tuxmonteiro.qbonsai.utils.ConvertUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,9 +33,10 @@ public class TradeBuilder {
         Instant instant = ConvertUtils.getInstantFromLong(datetimeMicrosecs);
 
         Trade trade = new Trade();
-        trade.setAmount(amount.doubleValue());
-        trade.setPrice(price.doubleValue());
+        trade.setAmount(amount);
+        trade.setPrice(price);
         trade.setDatetime(instant.toString());
+        trade.setTimestamp(datetimeMicrosecs);
         trade.setId(id);
         trade.setType(type);
         trade.setSymbol(symbol);
